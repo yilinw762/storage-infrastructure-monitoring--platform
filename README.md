@@ -1,5 +1,3 @@
-# storage-infrastructure-monitoring-platform
-
 # Storage Infrastructure Monitoring Platform
 
 ## Overview
