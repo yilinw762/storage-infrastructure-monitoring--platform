@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Storage Monitoring Platform</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f8f9fa; }
+    .stat-card { border-left: 4px solid; }
+    .stat-card.blue  { border-color: #0d6efd; }
+    .stat-card.green { border-color: #198754; }
+    .stat-card.red   { border-color: #dc3545; }
+    .stat-card.amber { border-color: #ffc107; }
+    .util-bar { height: 8px; border-radius: 4px; background: #e9ecef; }
+    .util-fill { height: 100%; border-radius: 4px; }
+    .badge-healthy  { background: #198754; }
+    .badge-warning  { background: #ffc107; color: #000; }
+    .badge-critical { background: #dc3545; }
+    .navbar { background: #1a1a2e; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark px-4 py-3 mb-4">
+  <span class="navbar-brand fw-bold fs-5">⬡ Storage Infrastructure Monitoring</span>
+  <span class="text-secondary small" id="last-updated"></span>
+</nav>
+
+<div class="container-fluid px-4">
+
+  <!-- Summary cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card stat-card blue p-3">
+        <div class="text-muted small">Total devices</div>
+        <div class="fs-3 fw-bold">{{ device_count }}</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card stat-card green p-3">
+        <div class="text-muted small">Avg utilization</div>
+        <div class="fs-3 fw-bold">{{ avg_utilization }}%</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card stat-card red p-3">
+        <div class="text-muted small">Alerts (warn/critical)</div>
+        <div class="fs-3 fw-bold">{{ alerts | length }}</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card stat-card amber p-3">
+        <div class="text-muted small">Locations monitored</div>
+        <div class="fs-3 fw-bold">{{ capacity_by_location | length }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alerts -->
+  {% if alerts %}
+  <div class="alert alert-danger mb-4">
+    <strong>Active alerts:</strong>
+    {% for a in alerts %}
+      <span class="badge bg-{{ 'danger' if a.health_status == 'critical' else 'warning text-dark' }} me-1">
+        {{ a.hostname }} — {{ a.health_status }}
+      </span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="row g-4">
+    <!-- Device metrics table -->
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-header fw-semibold">Device utilization</div>
+        <div class="card-body p-0">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Hostname</th>
+                <th>Location</th>
+                <th>Vendor</th>
+                <th>Utilization</th>
+                <th>Latency (ms)</th>
+                <th>IOPS</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for m in metrics %}
+              <tr>
+                <td class="fw-semibold">{{ m.hostname }}</td>
+                <td>{{ m.location }}</td>
+                <td><span class="text-muted">{{ m.vendor }}</span></td>
+                <td style="min-width:140px">
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="util-bar flex-grow-1">
+                      <div class="util-fill"
+                        style="width:{{ m.utilization_pct }}%;
+                          background:{% if m.utilization_pct > 90 %}#dc3545{% elif m.utilization_pct > 75 %}#ffc107{% else %}#198754{% endif %}">
+                      </div>
+                    </div>
+                    <span class="small">{{ m.utilization_pct }}%</span>
+                  </div>
+                </td>
+                <td>{{ m.avg_latency_ms if m.avg_latency_ms else m.latency_ms }}</td>
+                <td>{{ "{:,}".format(m.avg_iops | int if m.avg_iops else m.iops) }}</td>
+                <td>
+                  <span class="badge badge-{{ m.health_status }}">{{ m.health_status }}</span>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Capacity by location -->
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-header fw-semibold">Capacity by data center</div>
+        <div class="card-body">
+          {% for loc in capacity_by_location %}
+          <div class="mb-3">
+            <div class="d-flex justify-content-between small mb-1">
+              <span>{{ loc.location }}</span>
+              <span class="fw-semibold">{{ loc.total_capacity_tb }} TB</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-header fw-semibold">API endpoints</div>
+        <div class="card-body small">
+          <div class="mb-2"><code>GET /devices</code> — inventory</div>
+          <div class="mb-2"><code>GET /metrics</code> — live metrics</div>
+          <div class="mb-2"><code>GET /health</code> — service health</div>
+          <div><code>GET /gateway/*</code> — authenticated proxy</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  document.getElementById("last-updated").textContent =
+    "Last updated: " + new Date().toLocaleTimeString();
+  setTimeout(() => location.reload(), 30000);
+</script>
+</body>
+</html>
